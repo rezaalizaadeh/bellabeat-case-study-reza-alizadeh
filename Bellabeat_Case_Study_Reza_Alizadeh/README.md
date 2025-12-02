@@ -10,7 +10,7 @@
 
 ## Overview
 This project explores Fitbit smart device data to identify usage patterns and lifestyle trends among users.  
-The analysis focuses on **daily activity, sleep, and calorie-burning behavior to generate actionable business insights for **Bellabeat**, a health-focused smart device company for women.
+The analysis focuses on daily activity, sleep, and calorie-burning behavior to generate actionable business insights for **Bellabeat**, a health-focused smart device company for women.
 
 This case study was developed as part of the **Google Data Analytics Capstone Project** and demonstrates the full data analytics process — from cleaning and validation to visualization and business recommendations.
 
