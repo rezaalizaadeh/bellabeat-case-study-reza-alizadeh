@@ -1,0 +1,449 @@
+---
+title: "Bellabeat Case Study — Data Analysis Report"
+author: "Reza Mahin Mohammadalizadeh, Master’s in Data Science, University of Padova"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: true
+    theme: cerulean
+    highlight: textmate
+    df_print: paged
+
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    latex_engine: xelatex
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(lubridate)
+```
+
+---
+
+# Introduction
+
+Bellabeat is a high-tech wellness company that manufactures smart products designed to empower women through health data.  
+This case study explores **Fitbit user data** to uncover activity, sleep, and heart-rate behavior patterns.  
+By analyzing daily and hourly data, we aim to identify **how users engage with their devices**, discover trends in physical activity and rest, and generate **data-driven recommendations** to improve Bellabeat’s marketing and product strategy.
+
+---
+
+# Data
+
+## Data Loading
+
+We use the cleaned datasets created during the data-wrangling phase.  
+The `daily_merged` dataset summarizes daily user metrics such as steps, calories, and sleep,  
+while the `hourly_merged` dataset contains per-hour measures of activity intensity and heart rate.
+
+```{r data_loading}
+# Move one level up from /Scripts, then into Data/Processed/
+daily_merged  <- read_csv("../Data/Processed/daily_merged.csv")
+hourly_merged <- read_csv("../Data/Processed/hourly_merged.csv")
+
+cat("Daily data rows:", nrow(daily_merged), "\n")
+cat("Hourly data rows:", nrow(hourly_merged), "\n")
+
+```
+
+---
+
+
+
+## Data Sources
+
+The data used for this analysis originates from **Fitbit Fitness Tracker Data**, publicly available on [Kaggle](https://www.kaggle.com/datasets/arashnic/fitbit).  
+It contains anonymized activity, sleep, and weight logs collected from Fitbit users who voluntarily shared their data.
+
+The original dataset includes multiple separate CSV files such as:
+- **dailyActivity_merged.csv** – user-level daily step count, distance, and calories.  
+- **hourlySteps_merged.csv**, **hourlyCalories_merged.csv**, and **hourlyIntensities_merged.csv** – detailed hourly metrics of steps, energy expenditure, and activity intensity.  
+- **minuteSleep_merged.csv** – minute-level sleep tracking.  
+- **heartrate_seconds_merged.csv** – second-level heart rate data.  
+- **weightLogInfo_merged.csv** – manually logged weight entries.
+
+For this project, these raw files were **cleaned, joined, and aggregated** to produce two main analytical datasets:
+- `daily_merged`: combines daily activity, calories, and sleep data per user per day.  
+- `hourly_merged`: merges hourly step count, calories, intensity, and average heart rate.
+
+These processed datasets provide a consistent structure suitable for trend analysis, correlation study, and data visualization.
+
+---
+
+## Data Overview and Validation
+
+Before conducting any analysis, we first perform a **structural and quality validation** of the processed datasets.  
+This includes inspecting variable types, counting unique participants, identifying missing values, and verifying date/time coverage to ensure data integrity.
+
+```{r data_overview, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+# Inspect structure quietly (not printed in report)
+glimpse(daily_merged)
+glimpse(hourly_merged)
+```
+```{r summary_table, echo=FALSE, message=FALSE, warning=FALSE}
+# Summary statistics
+daily_users <- n_distinct(daily_merged$Id)
+hourly_users <- n_distinct(hourly_merged$Id)
+
+daily_missing <- sum(is.na(daily_merged))
+hourly_missing <- sum(is.na(hourly_merged))
+
+daily_range <- range(daily_merged$ActivityDate, na.rm = TRUE)
+hourly_range <- range(hourly_merged$ActivityHour, na.rm = TRUE)
+
+# Create summary table
+overview_tbl <- tibble(
+  Dataset = c("daily_merged", "hourly_merged"),
+  Rows = c(nrow(daily_merged), nrow(hourly_merged)),
+  Columns = c(ncol(daily_merged), ncol(hourly_merged)),
+  `Unique Users` = c(daily_users, hourly_users),
+  `Missing Values` = c(daily_missing, hourly_missing)
+)
+
+knitr::kable(overview_tbl, caption = "Summary of Processed Datasets")
+```
+
+```{r data_rnages, echo=FALSE, results='asis'}
+cat("**Date range (daily):**", format(daily_range[1], "%b %d, %Y"), "—", format(daily_range[2], "%b %d, %Y"), "\n\n")
+cat("**Datetime range (hourly):**", format(hourly_range[1], "%b %d, %Y"), "—", format(hourly_range[2], "%b %d, %Y"), "\n")
+```
+
+---
+
+# Exploratory Data Analysis
+
+This section explores users’ physical activity patterns at both **hourly** and **daily** levels to identify trends in movement, intensity, calories burned, and sleep behavior.  
+By examining correlations and temporal variations, we gain insights into how users interact with their wearable devices and maintain their activity throughout the day.
+
+---
+
+## Hourly-Level Analysis
+
+We first explore activity behavior at the **hourly scale** — how movement, intensity, and calories relate across the day.
+
+---
+
+### Distribution of Hourly Step Count
+```{r hourly_steps_distribution, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(hourly_merged, aes(x = StepTotal)) +
+  geom_histogram(bins = 50, fill = "#4C9AFF") +
+  labs(
+    title = "Distribution of Hourly Step Count",
+    x = "Steps per Hour",
+    y = "Number of Hours"
+  ) +
+  theme_minimal()
+```
+
+Interpretation:
+Most hourly step counts are close to zero, indicating that users spend many inactive hours during the day.
+Only a few hours show high activity (2,000+ steps), suggesting bursts of movement such as workouts or commuting periods.
+
+---
+
+### Steps vs Calories
+```{r hourly_steps_vs_colaries, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(hourly_merged, aes(x = StepTotal, y = Calories)) +
+  geom_point(alpha = 0.4, color = "#FF7F50") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(
+    title = "Steps vs Calories Burned (Hourly)",
+    x = "Steps per Hour",
+    y = "Calories Burned"
+  )
+```
+
+Interpretation:
+There is a clear positive linear relationship between steps and calories burned per hour.
+As the number of steps increases, the calories burned also rise, which confirms the logical link between physical activity and energy expenditure.
+
+---
+
+### Steps vs Intensity
+
+```{r hourly_steps_vs_Intensity, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(hourly_merged, aes(x = StepTotal, y = TotalIntensity)) +
+  geom_point(alpha = 0.3, color = "#7BC143") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(
+    title = "Steps vs Total Intensity (Hourly)",
+    x = "Steps per Hour",
+    y = "Intensity"
+  )
+```
+
+Interpretation:
+Step counts and total intensity also exhibit a positive correlation, indicating that more movement per hour results in higher recorded activity intensity.
+
+---
+
+### Average Hourly Activity Pattern
+
+```{r average_steps_by_hour, echo=FALSE, message=FALSE, warning=FALSE}
+hourly_pattern <- hourly_merged %>%
+  mutate(Hour = lubridate::hour(ActivityHour)) %>%
+  group_by(Hour) %>%
+  summarise(
+    AvgSteps = mean(StepTotal, na.rm = TRUE),
+    AvgCalories = mean(Calories, na.rm = TRUE),
+    AvgIntensity = mean(TotalIntensity, na.rm = TRUE)
+  )
+
+ggplot(hourly_pattern, aes(x = Hour, y = AvgSteps)) +
+  geom_line(size = 1.2, color = "#0066CC") +
+  labs(
+    title = "Average Steps by Hour of Day",
+    x = "Hour of Day",
+    y = "Average Steps"
+  ) +
+  theme_minimal()
+```
+
+Interpretation:
+Users show clear daily activity cycles, with step counts rising sharply after 6 AM, peaking in late morning and early evening hours, and declining after 9 PM.
+This reflects common daily routines of commuting, exercise, and evening movement.
+
+---
+
+## Daily-Level Analysis
+
+We now shift from hourly activity to **daily trends** to identify long-term lifestyle patterns — examining total steps, calories burned, sedentary time, activity breakdown, and sleep duration.  
+These visualizations help to understand overall behavioral habits and their relationships across different wellness dimensions.
+
+---
+
+### Daily Step Count Distribution
+```{r daily_steps_distribution, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(daily_merged, aes(x = TotalSteps)) +
+  geom_histogram(fill = "#4C9AFF", bins = 40) +
+  labs(
+    title = "Daily Step Count Distribution",
+    x = "Total Daily Steps",
+    y = "Count of Days"
+  ) +
+  theme_minimal()
+```
+
+Insight:
+The step distribution is heavily right-skewed — most users record fewer than 5,000–7,000 steps per day, while only a few achieve over 15,000.
+This suggests that consistent high activity is uncommon, and many users fall below the typical 10,000-step wellness benchmark.
+
+---
+
+### Daily Calories Burned Distribution
+```{r daily_colories_distribution, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(daily_merged, aes(x = Calories)) +
+  geom_histogram(fill = "#FFA657", bins = 40) +
+  labs(
+    title = "Daily Calories Burned Distribution",
+    x = "Calories Burned",
+    y = "Count of Days"
+  ) +
+  theme_minimal()
+```
+
+Insight:
+Calories burned follow a normal-like distribution centered around 2,000–2,500 kcal/day, which aligns with moderate lifestyle activity.
+Outliers on both sides reflect highly sedentary users and more active individuals performing workouts or longer movement periods.
+
+---
+
+### Daily Steps vs Calories Burned
+```{r daily_steps_vs_colories, echo=FALSE, message=FALSE, warning=FALSE}
+# 3. Steps vs Calories
+ggplot(daily_merged, aes(x = TotalSteps, y = Calories)) +
+  geom_point(alpha = 0.5, color = "#FF6666") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(
+    title = "Daily Steps vs Calories Burned",
+    x = "Total Steps",
+    y = "Calories"
+  )
+```
+
+Insight:
+A strong positive linear trend exists between total daily steps and calories burned.
+This confirms that step count is a reliable predictor of daily energy expenditure.
+
+---
+
+### Daily Steps vs Sedentary Minutes
+```{r daily_steps_vs_sedentary, echo=FALSE, message=FALSE, warning=FALSE}
+# 4. Steps vs Sedentary Minutes
+ggplot(daily_merged, aes(x = TotalSteps, y = SedentaryMinutes)) +
+  geom_point(alpha = 0.4, color = "#66BB6A") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(
+    title = "Daily Steps vs Sedentary Minutes",
+    x = "Steps",
+    y = "Sedentary Minutes"
+  ) +
+  theme_minimal()
+```
+
+Insight:
+There is a clear negative relationship between step count and sedentary time —
+users who walk more tend to spend fewer minutes sitting or inactive.
+This aligns with expected physical activity patterns in balanced lifestyles.
+
+---
+
+### Distribution of Daily Activity Minutes
+```{r daily_activity_minutes_boxplot, echo=FALSE, message=FALSE, warning=FALSE}
+activity_long <- daily_merged %>%
+  select(ActivityDate, VeryActiveMinutes, FairlyActiveMinutes, LightlyActiveMinutes, SedentaryMinutes) %>%
+  pivot_longer(cols = -ActivityDate, names_to = "ActivityType", values_to = "Minutes")
+
+ggplot(activity_long, aes(x = ActivityType, y = Minutes)) +
+  geom_boxplot(fill = "#A6D8FF") +
+  labs(
+    title = "Distribution of Daily Activity Minutes",
+    x = "Activity Type",
+    y = "Minutes"
+  ) +
+  theme_minimal()
+```
+
+Insight:
+Sedentary time dominates most days, with median values far exceeding any active categories.
+“Lightly Active” minutes show moderate engagement, whereas “Very Active” and “Fairly Active” minutes are minimal, reflecting limited high-intensity activity.
+
+---
+
+### Sleep Duration Distribution
+```{r sleep_distribution, echo=FALSE, message=FALSE, warning=FALSE}
+sleep_daily <- daily_merged %>%
+  select(ActivityDate, TotalMinutesAsleep, TotalSteps)
+
+ggplot(sleep_daily, aes(x = TotalMinutesAsleep)) +
+  geom_histogram(fill = "#9999FF", bins = 30) +
+  labs(
+    title = "Daily Sleep Duration Distribution",
+    x = "Total Minutes Asleep",
+    y = "Count of Days"
+  ) +
+  theme_minimal()
+```
+
+Insight:
+Most users report 6–8 hours of sleep per night, which fits within recommended sleep duration.
+However, there is notable variance, with several users showing inconsistent sleep tracking or short sleep durations (<5 hours).
+
+---
+
+### Sleep Duration vs Daily Steps
+```{r sleep_vs_steps, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(sleep_daily, aes(x = TotalMinutesAsleep, y = TotalSteps)) +
+  geom_point(alpha = 0.5, color = "#0099CC") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(
+    title = "Sleep Duration vs Daily Steps",
+    x = "Minutes Asleep",
+    y = "Steps"
+  )
+```
+
+Insight:
+The relationship between sleep and activity is weakly negative —
+users with slightly longer sleep durations tend to take fewer daily steps, possibly due to reduced waking hours or lower energy expenditure.
+
+---
+  
+### Average Steps by Weekday
+```{r weekday_steps, echo=FALSE, message=FALSE, warning=FALSE}
+daily_merged <- daily_merged %>%
+  mutate(Weekday = wday(ActivityDate, label = TRUE, abbr = TRUE))
+
+weekday_steps <- daily_merged %>%
+  group_by(Weekday) %>%
+  summarise(AvgSteps = mean(TotalSteps, na.rm = TRUE))
+
+ggplot(weekday_steps, aes(x = Weekday, y = AvgSteps, group = 1)) +
+  geom_line(size = 1.2, color = "#0066CC") +
+  geom_point(size = 3, color = "#004A99") +
+  labs(
+    title = "Average Daily Steps by Weekday",
+    x = "Day of Week",
+    y = "Average Steps"
+  ) +
+  theme_minimal()
+```
+
+Insight:
+Average steps vary noticeably throughout the week.
+Users tend to be more active on weekdays, with visible peaks around mid-week (Tuesday–Thursday) and a noticeable drop in activity during weekends.
+This pattern may indicate that users’ physical activity is influenced by structured routines (commuting, work schedules) and declines during leisure days, when they rely less on step-tracking habits.
+
+---
+
+# Insights and Business Recommendations
+
+##  Key Insights
+
+1. **Activity Patterns**  
+   - Most users show limited movement during early morning hours (**00:00–06:00**) and peak activity between **07:00–21:00**, with the **highest intensity from 17:00–20:00**.  
+   - A strong positive correlation between **steps, intensity, and calories burned** confirms consistent physical activity tracking across devices.
+
+2. **Sedentary Behavior**  
+   - Users spend a large portion of their day sedentary, typically **700–1,000 minutes per day** (≈12–16 hours).  
+   - A clear negative correlation exists between **steps and sedentary minutes**, confirming that active users experience substantially less idle time.
+
+3. **Sleep Patterns**  
+   - The majority of users record between **350–450 minutes of sleep per night** (≈6–7.5 hours).  
+   - A weak negative correlation between **sleep duration and daily steps** suggests that higher activity levels may lead to slightly shorter sleep durations.
+
+4. **Weekly Trends**  
+   - **Wednesday and Monday** emerge as peak activity days, while **Tuesday** shows the lowest activity levels — possibly due to recovery or midweek fatigue.  
+   - The **weekend drop** suggests less structured physical activity and reduced device engagement on leisure days.
+
+5. **Heart Rate**  
+   - Heart-rate data is limited but demonstrates a **positive correlation with both steps and intensity**, reinforcing its reliability for tracking exertion and calorie estimates.
+
+---
+
+## Business Recommendations
+
+1. **Encourage Regular Movement**  
+   - Implement **in-app activity reminders** that nudge users to move after long sedentary periods.  
+   - Introduce **micro-goals**, such as 200 steps every 30 minutes or quick “stretch breaks,” to maintain engagement throughout the day.
+
+2. **Optimize Sleep Insights**  
+   - Offer **personalized sleep recovery tips** — e.g., bedtime reminders or post-activity recovery suggestions based on prior fatigue levels.  
+   - Use correlations between **sleep and activity intensity** to recommend ideal rest durations or recovery windows.
+
+3. **Gamify Activity Goals**  
+   - Launch **weekday-specific challenges** (e.g., “Move More Tuesdays”) to address low-activity days identified in the data.  
+   - Add **streaks, badges, and milestone rewards** to incentivize consistent daily movement and improve long-term retention.
+
+4. **Integrate Heart-Rate Metrics**  
+   - Enhance device syncing to include **continuous heart-rate and intensity zone tracking**.  
+   - Provide users with **personalized insights** such as “optimal calorie-burn hours” or “active recovery periods” derived from their heart-rate profiles.
+
+5. **Marketing and Growth Strategy**  
+   - Position Bellabeat as a **wellness intelligence platform** focused on holistic health — **activity, rest, and recovery**.  
+   - Target communications toward **young professionals and health-conscious women**, emphasizing balanced lifestyles, habit-building, and self-awareness.  
+
+---
+
+# Conclusion
+
+The analysis of Fitbit-derived data highlights consistent user behavior patterns: **moderate physical activity, prolonged sedentary time, and generally healthy sleep habits**.  
+By embedding these findings into Bellabeat’s product and marketing strategy, the company can:  
+- Improve **user engagement** through behavior-based notifications and gamified challenges.  
+- Support **better health outcomes** by recommending balanced routines across activity and rest.  
+- Strengthen **brand differentiation** as a data-driven wellness company empowering women to make informed lifestyle decisions.
+
+
+
+---
