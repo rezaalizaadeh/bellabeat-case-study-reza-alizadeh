@@ -88,8 +88,8 @@ Future work could include:
 
 ## Contact
 If you have questions or feedback, feel free to reach out:  
-📧 reza.alizadeh.data@gmail.com  
-🔗 [LinkedIn Profile](https://www.linkedin.com/in/rezaalizadeh)
+📧 rezaalizaadeh@gmail.com  
+🔗 [LinkedIn Profile](https://www.linkedin.com/in/reza-alizadeh-6a5847244/)
 
 ---
 
