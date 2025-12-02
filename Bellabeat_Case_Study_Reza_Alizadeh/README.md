@@ -1,11 +1,12 @@
 # Bellabeat Case Study — Data Analysis Report
 
-![Bellabeat Data Analysis](Visuals/daily_avg_steps_by_weekday.png)
+<p align="center">
+  <img src="Visuals/daily_avg_steps_by_weekday.png" width="700"/>
+</p>
 
 **Author:** Reza Mahin Mohammadalizadeh  
 **Tools:** R, tidyverse, ggplot2, dplyr, lubridate, knitr, R Markdown  
 **Date:** December 2025  
-
 ---
 
 ## Overview
